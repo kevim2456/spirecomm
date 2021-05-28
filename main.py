@@ -17,6 +17,5 @@ if __name__ == "__main__":
 
     # Play games forever with ironclad
     agent.change_class(PlayerClass.IRONCLAD)
-    while(True):
-        result = coordinator.play_one_game(PlayerClass.IRONCLAD)
-
+    # while(True):
+    result = coordinator.play_one_game(PlayerClass.IRONCLAD)

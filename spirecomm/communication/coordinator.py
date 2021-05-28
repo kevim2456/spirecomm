@@ -60,6 +60,10 @@ class Coordinator:
         self.in_game = False
         self.last_game_state = None
         self.last_error = None
+        self.dump_filename = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\test.txt"
+        f = open(self.dump_filename,'w')
+        f.write("test test\n")
+        f.close()
 
     def signal_ready(self):
         """Indicate to Communication Mod that setup is complete
@@ -161,6 +165,11 @@ class Coordinator:
         message = self.get_next_raw_message(block)
         if message is not None:
             communication_state = json.loads(message)
+            f = open(self.dump_filename,'a')
+            f.write("\ncommunication_state\n")
+            f.write(json.dumps(communication_state))
+            f.write("\n")
+            f.close()
             self.last_error = communication_state.get("error", None)
             self.game_is_ready = communication_state.get("ready_for_command")
             if self.last_error is None:
@@ -218,4 +227,3 @@ class Coordinator:
             return self.last_game_state.screen.victory
         else:
             return False
-
