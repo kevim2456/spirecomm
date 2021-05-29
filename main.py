@@ -15,7 +15,8 @@ if __name__ == "__main__":
     coordinator.register_state_change_callback(agent.get_next_action_in_game)
     coordinator.register_out_of_game_callback(agent.get_next_action_out_of_game)
 
-    # Play games forever, cycling through the various classes
-    for chosen_class in itertools.cycle(PlayerClass):
-        agent.change_class(chosen_class)
-        result = coordinator.play_one_game(chosen_class)
+    # Play games forever with ironclad
+    agent.change_class(PlayerClass.IRONCLAD)
+    while(True):
+        result = coordinator.play_one_game(PlayerClass.IRONCLAD)
+
