@@ -9,7 +9,9 @@ from spirecomm.spire.character import PlayerClass
 
 if __name__ == "__main__":
     agent = SimpleAgent()
+    agent.set_dump()
     coordinator = Coordinator()
+    coordinator.set_dump()
     coordinator.signal_ready()
     coordinator.register_command_error_callback(agent.handle_error)
     coordinator.register_state_change_callback(agent.get_next_action_in_game)

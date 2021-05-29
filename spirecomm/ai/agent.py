@@ -22,6 +22,9 @@ class SimpleAgent:
         self.priorities = Priority()
         self.change_class(chosen_class)
 
+    def set_dump(self, str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\test.json"):
+        self.dump_filename = str
+
     def change_class(self, new_class):
         self.chosen_class = new_class
         if self.chosen_class == PlayerClass.THE_SILENT:
@@ -88,6 +91,15 @@ class SimpleAgent:
         return len(available_monsters) > 1
 
     def get_play_card_action(self):
+        f = open(self.dump_filename,'a')
+        f.write("\n in agent \n")
+        f.write("\n")
+        for i in self.game.hand:
+            f.write(i.name)
+            f.write("\n")
+        f.write("\n")
+        f.close()
+
         playable_cards = [card for card in self.game.hand if card.is_playable]
         zero_cost_cards = [card for card in playable_cards if card.cost == 0]
         zero_cost_attacks = [card for card in zero_cost_cards if card.type == spirecomm.spire.card.CardType.ATTACK]
@@ -273,4 +285,3 @@ class SimpleAgent:
                 return ChooseMapNodeAction(choice)
         # This should never happen
         return ChooseAction(0)
-
