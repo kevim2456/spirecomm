@@ -36,9 +36,9 @@ def a_fetch(game):
     str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\test.json"
     f = open(str,'w')
     f.write("in a.py\n")
-    f.write(json.dumps(game.json_state, indent=4, sort_keys=True))
+    f.write(json.dumps(game.json_state, indent=4))
     f.write("\n\n")
-    f.write(json.dumps(flatten_json(game.json_state), indent=4, sort_keys=True))
+    f.write(json.dumps(flatten_json(game.json_state), indent=4))
     f.write("\n\n")
     f.close()
 
