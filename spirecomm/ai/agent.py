@@ -53,13 +53,21 @@ class SimpleAgent:
     def handle_error(self, error):
         raise Exception(error)
 
+    def get_turn_info(self):
+        info = [["combat_state","player"]]
+        rv = {}
+        for i in info:
+            rv.update(recur_get(self.game.json_state,i))
+        return rv
+
     def get_combat_info(self):
         if self.prev_game.in_combat == False and self.game.in_combat == True:
             self.combat_info.clear()
             # self.dump(self.game.floor,'w')
             self.combat_info["floor"] = self.game.floor
-            self.combat_info["start_info"] = self.game.json_state
+            self.combat_info["start_info"] = "start_info"#self.game.json_state
             self.combat_info["turns"] = {}
+            self.dump(repr(self.get_turn_info()))
         if self.game.in_combat:
             n_turn = self.game.turn
             if n_turn != self.prev_game.turn:

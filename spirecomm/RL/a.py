@@ -1,8 +1,8 @@
-from spirecomm.spire.game import Game
-from spirecomm.spire.character import Intent, PlayerClass
-import spirecomm.spire.card
-from spirecomm.spire.screen import RestOption
-from spirecomm.communication.action import *
+# from spirecomm.spire.game import Game
+# from spirecomm.spire.character import Intent, PlayerClass
+# import spirecomm.spire.card
+# from spirecomm.spire.screen import RestOption
+# from spirecomm.communication.action import *
 import json
 
 def flatten_json(y):
@@ -1180,9 +1180,15 @@ if __name__ == '__main__':
     "seed": 6957534091124485133
 }
 
-    z = recur_get(t,["combat_state","player"])
-    z.update(recur_get(t,["combat_state","monsters"]))
-    pp(z)
+    z = {}
+    l = [["combat_state","player"],["combat_state","monsters"]]
+    # print(*[recur_get(t,i) for i in l])
+    for i in l :
+        z.update(recur_get(t,i))
+    zs = repr(z)
+    print(zs)
+
+
     # state2pop = [
     #     'act_boss',
     #     'action_phase',
