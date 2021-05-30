@@ -16,6 +16,7 @@ class SimpleAgent:
     def __init__(self, chosen_class=PlayerClass.THE_SILENT):
         self.prev_game = Game()
         self.game = Game()
+        self.combat_info = {}
         self.errors = 0
         self.choose_good_card = False
         self.skipped_cards = False
@@ -54,18 +55,28 @@ class SimpleAgent:
 
     def get_combat_info(self):
         if self.prev_game.in_combat == False and self.game.in_combat == True:
-            self.dump(self.game.floor,'w')
+            self.combat_info.clear()
+            # self.dump(self.game.floor,'w')
+            self.combat_info["floor"] = self.game.floor
+            self.combat_info["start_info"] = self.game.json_state
+            self.combat_info["turns"] = {}
         if self.game.in_combat:
-            if self.game.turn != self.prev_game.turn:
-                self.dump("turn : "+str(self.game.turn))
-            # self.dump(json.dumps(self.game.json_state, indent=4))
-            self.dump("state to dump")
+            n_turn = self.game.turn
+            if n_turn != self.prev_game.turn:
+                # self.dump("turn : "+str(n_turn))
+                self.combat_info["turns"][n_turn] = {}
+            ###### self.dump(json.dumps(self.game.json_state, indent=4))
+            # self.dump("state to dump")
+            n_action = len(self.combat_info["turns"][n_turn]) + 1
+            self.combat_info["turns"][n_turn][n_action] = "curr info";
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
             # self.dump(json.dumps(self.game.json_state.get("screen_type")))
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
-                self.dump("win a combat")
+                self.combat_info["//"] = "win a combat";
+                self.dump(json.dumps(self.combat_info, indent=4),'w')
             elif self.game.screen_type==spirecomm.spire.screen.ScreenType["GAME_OVER"]:
-                self.dump("lose a combat")
+                self.combat_info["//"] = "lose a combat";
+                self.dump(json.dumps(self.combat_info, indent=4),'w')
 
     def get_next_action_in_game(self, game_state):
         self.prev_game = self.game
