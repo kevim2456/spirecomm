@@ -22,8 +22,11 @@ class SimpleAgent:
         self.priorities = Priority()
         self.change_class(chosen_class)
 
-    def set_dump(self, str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\test.json"):
+    def set_dump(self, str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\combat.json"):
         self.dump_filename = str
+        f = open(self.dump_filename,'w')
+        f.write("test test\n")
+        f.close()
 
     def change_class(self, new_class):
         self.chosen_class = new_class
@@ -92,13 +95,14 @@ class SimpleAgent:
 
     def get_play_card_action(self):
         f = open(self.dump_filename,'a')
-        f.write("\n in agent \n")
-        f.write("\n")
+        f.write("\n\nturn ")
+        f.write(str(self.game.turn))
+        f.write("\nhand :\n")
         for i in self.game.hand:
             f.write(i.name)
-            f.write("\n")
+            f.write(", ")
         f.write("\n")
-        f.close()
+        # f.close()
 
         playable_cards = [card for card in self.game.hand if card.is_playable]
         zero_cost_cards = [card for card in playable_cards if card.cost == 0]
@@ -112,8 +116,12 @@ class SimpleAgent:
                 nonzero_cost_cards = offensive_cards
             else:
                 nonzero_cost_cards = [card for card in nonzero_cost_cards if not card.exhausts]
+
         if len(playable_cards) == 0:
+            f.write("end turn\n")
+            f.close()
             return EndTurnAction()
+
         if len(zero_cost_non_attacks) > 0:
             card_to_play = self.priorities.get_best_card_to_play(zero_cost_non_attacks)
         elif len(nonzero_cost_cards) > 0:
@@ -128,13 +136,25 @@ class SimpleAgent:
         if card_to_play.has_target:
             available_monsters = [monster for monster in self.game.monsters if monster.current_hp > 0 and not monster.half_dead and not monster.is_gone]
             if len(available_monsters) == 0:
+                f.write("end turn\n")
+                f.close()
                 return EndTurnAction()
             if card_to_play.type == spirecomm.spire.card.CardType.ATTACK:
                 target = self.get_low_hp_target()
             else:
                 target = self.get_high_hp_target()
+            f.write("card to play : ")
+            f.write(card_to_play.name)
+            f.write(" -> ")
+            f.write(target.name)
+            f.write("\n")
+            f.close()
             return PlayCardAction(card=card_to_play, target_monster=target)
         else:
+            f.write("card to play : ")
+            f.write(card_to_play.name)
+            f.write("\n")
+            f.close()
             return PlayCardAction(card=card_to_play)
 
     def use_next_potion(self):
