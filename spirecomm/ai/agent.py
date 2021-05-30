@@ -1,5 +1,7 @@
 import time
 import random
+import copy
+import json
 
 from spirecomm.spire.game import Game
 from spirecomm.spire.character import Intent, PlayerClass
@@ -12,6 +14,7 @@ from spirecomm.RL.a import *
 class SimpleAgent:
 
     def __init__(self, chosen_class=PlayerClass.THE_SILENT):
+        self.prev_game = Game()
         self.game = Game()
         self.errors = 0
         self.choose_good_card = False
@@ -22,10 +25,17 @@ class SimpleAgent:
         self.priorities = Priority()
         self.change_class(chosen_class)
 
-    def set_dump(self, str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\combat.json"):
-        self.dump_filename = str
-        f = open(self.dump_filename,'w')
-        f.write("test test\n")
+    def set_dump(self, s = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\combat.json"):
+        self.dump_filename = s
+        self.dump("test test",'w')
+
+    def dump(self,s,method='a'):
+        f = open(self.dump_filename,method)
+        try: f.write(s)
+        except:
+            try: f.write(repr(s))
+            except: f.write("dump None str object")
+        f.write("\n")
         f.close()
 
     def change_class(self, new_class):
@@ -43,7 +53,16 @@ class SimpleAgent:
         raise Exception(error)
 
     def get_next_action_in_game(self, game_state):
+        self.prev_game = self.game
         self.game = game_state
+        self.dump("anyone out there?")
+        if (self.prev_game.in_combat == False) and (self.game.in_combat == True):
+            self.dump("yo man")
+            self.dump(self.game.floor,'w')
+        if self.game.in_combat:
+            self.dump("hi there")
+            self.dump(json.dumps(self.game.json_state, indent=4))
+            self.dump("hi there")
         #time.sleep(0.07)
         if self.game.choice_available:
             return self.handle_screen()
@@ -94,10 +113,6 @@ class SimpleAgent:
         return len(available_monsters) > 1
 
     def get_play_card_action(self):
-        a_fetch(self.game)
-        f = open(self.dump_filename,'a')
-        f.write("a fetch done\n")
-        f.close()
         playable_cards = [card for card in self.game.hand if card.is_playable]
         zero_cost_cards = [card for card in playable_cards if card.cost == 0]
         zero_cost_attacks = [card for card in zero_cost_cards if card.type == spirecomm.spire.card.CardType.ATTACK]
