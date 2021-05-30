@@ -21,6 +21,7 @@ class Game:
 
         # General state
 
+        self.json_state = None
         self.current_action = None
         self.current_hp = 0
         self.max_hp = 0
@@ -70,6 +71,7 @@ class Game:
     @classmethod
     def from_json(cls, json_state, available_commands):
         game = cls()
+        game.json_state = json_state
         game.current_action = json_state.get("current_action", None)
         game.current_hp = json_state.get("current_hp")
         game.max_hp = json_state.get("max_hp")

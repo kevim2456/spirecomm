@@ -7,7 +7,7 @@ import spirecomm.spire.card
 from spirecomm.spire.screen import RestOption
 from spirecomm.communication.action import *
 from spirecomm.ai.priorities import *
-
+from spirecomm.RL.a import *
 
 class SimpleAgent:
 
@@ -94,16 +94,10 @@ class SimpleAgent:
         return len(available_monsters) > 1
 
     def get_play_card_action(self):
+        a_fetch(self.game)
         f = open(self.dump_filename,'a')
-        f.write("\n\nturn ")
-        f.write(str(self.game.turn))
-        f.write("\nhand :\n")
-        for i in self.game.hand:
-            f.write(i.name)
-            f.write(", ")
-        f.write("\n")
-        # f.close()
-
+        f.write("a fetch done\n")
+        f.close()
         playable_cards = [card for card in self.game.hand if card.is_playable]
         zero_cost_cards = [card for card in playable_cards if card.cost == 0]
         zero_cost_attacks = [card for card in zero_cost_cards if card.type == spirecomm.spire.card.CardType.ATTACK]
@@ -118,8 +112,6 @@ class SimpleAgent:
                 nonzero_cost_cards = [card for card in nonzero_cost_cards if not card.exhausts]
 
         if len(playable_cards) == 0:
-            f.write("end turn\n")
-            f.close()
             return EndTurnAction()
 
         if len(zero_cost_non_attacks) > 0:
@@ -136,25 +128,13 @@ class SimpleAgent:
         if card_to_play.has_target:
             available_monsters = [monster for monster in self.game.monsters if monster.current_hp > 0 and not monster.half_dead and not monster.is_gone]
             if len(available_monsters) == 0:
-                f.write("end turn\n")
-                f.close()
                 return EndTurnAction()
             if card_to_play.type == spirecomm.spire.card.CardType.ATTACK:
                 target = self.get_low_hp_target()
             else:
                 target = self.get_high_hp_target()
-            f.write("card to play : ")
-            f.write(card_to_play.name)
-            f.write(" -> ")
-            f.write(target.name)
-            f.write("\n")
-            f.close()
             return PlayCardAction(card=card_to_play, target_monster=target)
         else:
-            f.write("card to play : ")
-            f.write(card_to_play.name)
-            f.write("\n")
-            f.close()
             return PlayCardAction(card=card_to_play)
 
     def use_next_potion(self):

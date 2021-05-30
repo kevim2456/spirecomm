@@ -64,8 +64,9 @@ class Coordinator:
     def set_dump(self, str = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\test.json"):
         self.dump_filename = str
         f = open(self.dump_filename,'w')
-        f.write("test test\n")
+        f.write("test test test\n")
         f.close()
+        pass
 
     def signal_ready(self):
         """Indicate to Communication Mod that setup is complete
@@ -167,9 +168,9 @@ class Coordinator:
         message = self.get_next_raw_message(block)
         if message is not None:
             communication_state = json.loads(message)
-            f = open(self.dump_filename,'w')
-            f.write(json.dumps(communication_state, indent=4, sort_keys=True))
-            f.close()
+            # f = open(self.dump_filename,'w')
+            # f.write(json.dumps(communication_state, indent=4, sort_keys=True))
+            # f.close()
             self.last_error = communication_state.get("error", None)
             self.game_is_ready = communication_state.get("ready_for_command")
             if self.last_error is None:
@@ -180,16 +181,16 @@ class Coordinator:
                 if self.last_error is not None:
                     self.action_queue.clear()
                     new_action = self.error_callback(self.last_error)
-                    self.add_action_to_queue(new_action)
+                    # self.add_action_to_queue(new_action)
                 elif self.in_game:
                     if len(self.action_queue) == 0 and perform_callbacks:
                         new_action = self.state_change_callback(self.last_game_state)
-                        self.add_action_to_queue(new_action)
+                        # self.add_action_to_queue(new_action)
                 elif self.stop_after_run:
                     self.clear_actions()
                 else:
                     new_action = self.out_of_game_callback()
-                    self.add_action_to_queue(new_action)
+                    # self.add_action_to_queue(new_action)
             return True
         return False
 
