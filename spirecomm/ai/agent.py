@@ -52,17 +52,25 @@ class SimpleAgent:
     def handle_error(self, error):
         raise Exception(error)
 
+    def get_combat_info(self):
+        if self.prev_game.in_combat == False and self.game.in_combat == True:
+            self.dump(self.game.floor,'w')
+        if self.game.in_combat:
+            if self.game.turn != self.prev_game.turn:
+                self.dump("turn : "+str(self.game.turn))
+            # self.dump(json.dumps(self.game.json_state, indent=4))
+            self.dump("state to dump")
+        if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
+            # self.dump(json.dumps(self.game.json_state.get("screen_type")))
+            if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
+                self.dump("win a combat")
+            elif self.game.screen_type==spirecomm.spire.screen.ScreenType["GAME_OVER"]:
+                self.dump("lose a combat")
+
     def get_next_action_in_game(self, game_state):
         self.prev_game = self.game
         self.game = game_state
-        self.dump("anyone out there?")
-        if (self.prev_game.in_combat == False) and (self.game.in_combat == True):
-            self.dump("yo man")
-            self.dump(self.game.floor,'w')
-        if self.game.in_combat:
-            self.dump("hi there")
-            self.dump(json.dumps(self.game.json_state, indent=4))
-            self.dump("hi there")
+        self.get_combat_info()
         #time.sleep(0.07)
         if self.game.choice_available:
             return self.handle_screen()
