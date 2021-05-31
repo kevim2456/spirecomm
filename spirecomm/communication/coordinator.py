@@ -8,6 +8,8 @@ from spirecomm.spire.game import Game
 from spirecomm.spire.screen import ScreenType
 from spirecomm.communication.action import Action, StartGameAction
 
+autorun = True
+# autorun = False
 
 def read_stdin(input_queue):
     """Read lines from stdin and write them to a queue
@@ -181,16 +183,16 @@ class Coordinator:
                 if self.last_error is not None:
                     self.action_queue.clear()
                     new_action = self.error_callback(self.last_error)
-                    # self.add_action_to_queue(new_action)
+                    if autorun: self.add_action_to_queue(new_action)
                 elif self.in_game:
                     if len(self.action_queue) == 0 and perform_callbacks:
                         new_action = self.state_change_callback(self.last_game_state)
-                        # self.add_action_to_queue(new_action)
+                        if autorun: self.add_action_to_queue(new_action)
                 elif self.stop_after_run:
                     self.clear_actions()
                 else:
                     new_action = self.out_of_game_callback()
-                    # self.add_action_to_queue(new_action)
+                    if autorun:self.add_action_to_queue(new_action)
             return True
         return False
 
