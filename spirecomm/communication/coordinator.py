@@ -168,9 +168,9 @@ class Coordinator:
         message = self.get_next_raw_message(block)
         if message is not None:
             communication_state = json.loads(message)
-            # f = open(self.dump_filename,'w')
-            # f.write(json.dumps(communication_state, indent=4, sort_keys=True))
-            # f.close()
+            f = open(self.dump_filename,'w')
+            f.write(json.dumps(communication_state, indent=4, sort_keys=True))
+            f.close()
             self.last_error = communication_state.get("error", None)
             self.game_is_ready = communication_state.get("ready_for_command")
             if self.last_error is None:
