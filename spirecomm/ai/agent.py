@@ -82,7 +82,7 @@ class SimpleAgent:
             if n_turn != self.prev_game.turn:
                 self.combat_info["turns"][n_turn] = {}
             n_action = len(self.combat_info["turns"][n_turn]) + 1
-            self.combat_info["turns"][n_turn][n_action] = flatten_json(self.get_turn_info())
+            self.combat_info["turns"][n_turn][n_action] = self.get_turn_info()
             self.dump(json.dumps(self.combat_info, indent=4))
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
