@@ -5,11 +5,14 @@ import sys
 from spirecomm.communication.coordinator import Coordinator
 from spirecomm.ai.agent import SimpleAgent
 from spirecomm.spire.character import PlayerClass
+from spirecomm.RL.model import Model
 
 
 if __name__ == "__main__":
     agent = SimpleAgent()
     agent.set_dump() # you can place your path/file to dump
+    brain = Model()
+    agent.register_push_data_callback(brain.get_data)
     coordinator = Coordinator()
     coordinator.set_dump() # you can place your path/file to dump
     coordinator.signal_ready()

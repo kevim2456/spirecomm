@@ -26,7 +26,7 @@ class SimpleAgent:
         self.chosen_class = chosen_class
         self.priorities = Priority()
         self.change_class(chosen_class)
-        self.model = None
+        self.push_data_callback = None
 
     def change_class(self, new_class):
         self.chosen_class = new_class
@@ -46,17 +46,20 @@ class SimpleAgent:
         self.dump_filename = s
         self.dump("test test",'w')
 
-    def dump(self,s,method='a'):
+    def dump(self,s,method='a',end='\n'):
         f = open(self.dump_filename,method)
         try: f.write(s)
         except:
             try: f.write(repr(s))
             except: f.write("dump None str object")
-        f.write("\n")
+        f.write(end)
         f.close()
 
-    def register_model_train():
-        pass
+    def register_push_data_callback(self, callback):
+        self.push_data_callback = callback
+
+    def model_train(self):
+        self.push_data_callback(self.combat_info)
 
     def get_combat_start_info(self):
         info = ["act", "current_hp", "floor", "gold", "max_hp"]
@@ -100,6 +103,7 @@ class SimpleAgent:
         false = False
         true = True
         if self.prev_game.in_combat == False and self.game.in_combat == True:
+            self.dump('','w',end='')
             self.combat_info.clear()
             self.combat_info["start_info"] = self.get_combat_start_info()
             self.combat_info["turns"] = {}
@@ -109,18 +113,18 @@ class SimpleAgent:
                 self.combat_info["turns"][n_turn] = {}
             n_action = len(self.combat_info["turns"][n_turn]) + 1
             self.combat_info["turns"][n_turn][n_action] = self.get_turn_info()
-            self.dump(json.dumps(self.combat_info, indent=4))
+            # self.dump(json.dumps(self.combat_info, indent=4))
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
                 self.combat_info["end_info"] = self.get_combat_end_info()
                 self.combat_info["win"] = True
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
-                # self.model_train()
+                self.model_train()
             elif self.game.screen_type==spirecomm.spire.screen.ScreenType["GAME_OVER"]:
                 self.combat_info["end_info"] = self.get_combat_end_info()
                 self.combat_info["win"] = False
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
-                # self.model_train()
+                self.model_train()
 
     def get_next_action_in_game(self, game_state):
         self.prev_game = self.game
