@@ -4,44 +4,49 @@
     "turns": {
         "1": {
             "1": {
-                "combat_state_player": {
-                    "current_hp": 80,
-                    "block": 0,
-                    "max_hp": 80,
-                    "energy": 3
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 54,
-                        "current_hp": 1,
-                        "block": 0
-                    }
-                ]
+                "combat_state_player_current_hp": 80,
+                "combat_state_player_block": 0,
+                "combat_state_player_max_hp": 80,
+                "combat_state_player_energy": 3,
+                "combat_state_monsters_0_is_gone": false,
+                "combat_state_monsters_0_move_hits": 1,
+                "combat_state_monsters_0_move_base_damage": -1,
+                "combat_state_monsters_0_half_dead": false,
+                "combat_state_monsters_0_move_adjusted_damage": -1,
+                "combat_state_monsters_0_max_hp": 51,
+                "combat_state_monsters_0_current_hp": 1,
+                "combat_state_monsters_0_block": 0
             },
             "2": {
-                "combat_state_player": {
-                    "current_hp": 80,
-                    "block": 5,
-                    "max_hp": 80,
-                    "energy": 2
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 54,
-                        "current_hp": 1,
-                        "block": 0
-                    }
-                ]
+                "combat_state_player_current_hp": 80,
+                "combat_state_player_block": 5,
+                "combat_state_player_max_hp": 80,
+                "combat_state_player_energy": 2,
+                "combat_state_monsters_0_is_gone": false,
+                "combat_state_monsters_0_move_hits": 1,
+                "combat_state_monsters_0_move_base_damage": -1,
+                "combat_state_monsters_0_half_dead": false,
+                "combat_state_monsters_0_move_adjusted_damage": -1,
+                "combat_state_monsters_0_max_hp": 51,
+                "combat_state_monsters_0_current_hp": 1,
+                "combat_state_monsters_0_block": 0
+            }
+        },
+        "2": {
+            "1": {
+                "combat_state_player_current_hp": 80,
+                "combat_state_player_block": 0,
+                "combat_state_player_max_hp": 80,
+                "combat_state_player_energy": 3,
+                "combat_state_monsters_0_is_gone": false,
+                "combat_state_monsters_0_move_hits": 1,
+                "combat_state_monsters_0_move_base_damage": 6,
+                "combat_state_monsters_0_last_move_id": 3,
+                "combat_state_monsters_0_half_dead": false,
+                "combat_state_monsters_0_move_adjusted_damage": 6,
+                "combat_state_monsters_0_max_hp": 51,
+                "combat_state_monsters_0_current_hp": 1,
+                "combat_state_monsters_0_block": 0
             }
         }
     },

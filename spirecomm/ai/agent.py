@@ -74,28 +74,17 @@ class SimpleAgent:
         true = True
         if self.prev_game.in_combat == False and self.game.in_combat == True:
             self.combat_info.clear()
-            # self.dump(self.game.floor,'w')
             self.combat_info["floor"] = self.game.floor
-            self.combat_info["start_info"] = "start_info"#self.game.json_state
+            self.combat_info["start_info"] = "start_info"
             self.combat_info["turns"] = {}
         if self.game.in_combat:
             n_turn = self.game.turn
             if n_turn != self.prev_game.turn:
-                # self.dump("turn : "+str(n_turn))
                 self.combat_info["turns"][n_turn] = {}
-            ###### self.dump(json.dumps(self.game.json_state, indent=4))
-            # self.dump("state to dump")
             n_action = len(self.combat_info["turns"][n_turn]) + 1
-            # self.dump(json.dumps(self.get_turn_info(), indent=4))
-            # self.dump(repr(self.get_turn_info()))
-            self.combat_info["turns"][n_turn][n_action] = {}
-            # self.dump(json.dumps(self.combat_info, indent=4))
-            self.combat_info["turns"][n_turn][n_action] = self.get_turn_info()
-            # self.dump(json.dumps(self.combat_info, indent=4))
-            # self.dump(repr(self.combat_info))
-            self.dump("done")
+            self.combat_info["turns"][n_turn][n_action] = flatten_json(self.get_turn_info())
+            self.dump(json.dumps(self.combat_info, indent=4))
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
-            # self.dump(json.dumps(self.game.json_state.get("screen_type")))
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
                 self.combat_info["//"] = "win a combat";
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
