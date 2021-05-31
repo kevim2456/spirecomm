@@ -86,10 +86,10 @@ class SimpleAgent:
         for k in player_info_drop:
             rv["player"].pop(k)
 
-        monster_info_drop = ["intent","move_id","name","id","powers"]
-        for i in rv["monsters"]:
-            for k in monster_info_drop:
-                i.pop(k)
+        monster_info_drop = ["intent", "move_id", "last_move_id", "second_last_move_id", "name", "id", "powers"]
+        for k in monster_info_drop:
+            for i in range(len(rv["monsters"])):
+                rv["monsters"][i].pop(k,None)
 
         rv.update(recur_get(json_copy,["combat_state","hand"]))
         card_info_drop = ["id","uuid", "rarity", "has_target"]
