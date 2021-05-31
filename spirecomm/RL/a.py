@@ -24,12 +24,11 @@ def flatten_json(y):
     return out
 
 def recur_get(obj, iter):
-    # name = '_'.join(iter)
-    name = iter[-1]
+    name = '_'.join(iter)
     def recur(obj, iter):
-        obj2 = obj.get(iter.pop(0), None)
-        if len(iter): return recur(obj2, iter)
-        else: return obj2
+        obj = obj.get(iter.pop(0), None)
+        if len(iter): return recur(obj, iter)
+        else: return obj
     obj = recur(obj, iter)
     return {name:obj}
 
@@ -1181,15 +1180,13 @@ if __name__ == '__main__':
     "seed": 6957534091124485133
 }
 
-    pp(t)
     z = {}
     l = [["combat_state","player"],["combat_state","monsters"]]
     # print(*[recur_get(t,i) for i in l])
     for i in l :
         z.update(recur_get(t,i))
     zs = repr(z)
-    pp(t)
-
+    print(zs)
 
 
     # state2pop = [
