@@ -1,493 +1,200 @@
 {
     "start_info": {
         "act": 1,
-        "current_hp": 88,
+        "current_hp": 80,
         "floor": 1,
         "gold": 99,
-        "max_hp": 88
+        "max_hp": 80
     },
     "turns": {
         "1": {
             "1": {
-                "combat_state_player": {
-                    "current_hp": 88,
+                "player": {
+                    "current_hp": 80,
                     "block": 0,
-                    "max_hp": 88,
+                    "max_hp": 80,
                     "energy": 3
                 },
-                "combat_state_monsters": [
+                "monsters": [
                     {
                         "is_gone": false,
                         "move_hits": 1,
-                        "move_base_damage": 5,
+                        "move_base_damage": -1,
                         "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 10,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 49,
+                        "current_hp": 1,
                         "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 31,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
                     }
                 ]
             },
             "2": {
-                "combat_state_player": {
-                    "current_hp": 88,
-                    "block": 0,
-                    "max_hp": 88,
+                "player": {
+                    "current_hp": 80,
+                    "block": 5,
+                    "max_hp": 80,
                     "energy": 2
                 },
-                "combat_state_monsters": [
+                "monsters": [
                     {
                         "is_gone": false,
                         "move_hits": 1,
-                        "move_base_damage": 5,
+                        "move_base_damage": -1,
                         "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 4,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 31,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 49,
+                        "current_hp": 1,
                         "block": 0
                     }
-                ]
-            },
-            "3": {
-                "combat_state_player": {
-                    "current_hp": 88,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 1
-                },
-                "combat_state_monsters": [
+                ],
+                "hand": [
                     {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 31,
-                        "block": 0
-                    }
-                ]
-            },
-            "4": {
-                "combat_state_player": {
-                    "current_hp": 88,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 0
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 25,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
                     }
                 ]
             }
         },
         "2": {
             "1": {
-                "combat_state_player": {
-                    "current_hp": 81,
+                "player": {
+                    "current_hp": 80,
                     "block": 0,
-                    "max_hp": 88,
+                    "max_hp": 80,
                     "energy": 3
                 },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
+                "monsters": [
                     {
                         "is_gone": false,
                         "move_hits": 1,
-                        "move_base_damage": 7,
-                        "last_move_id": 1,
+                        "move_base_damage": 6,
+                        "last_move_id": 3,
                         "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 25,
-                        "block": 0
-                    }
-                ]
-            },
-            "2": {
-                "combat_state_player": {
-                    "current_hp": 81,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 2
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 19,
-                        "block": 0
-                    }
-                ]
-            },
-            "3": {
-                "combat_state_player": {
-                    "current_hp": 81,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 1
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 13,
-                        "block": 0
-                    }
-                ]
-            },
-            "4": {
-                "combat_state_player": {
-                    "current_hp": 81,
-                    "block": 5,
-                    "max_hp": 88,
-                    "energy": 0
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 7,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": 7,
-                        "max_hp": 31,
-                        "current_hp": 13,
-                        "block": 0
-                    }
-                ]
-            }
-        },
-        "3": {
-            "1": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 3
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 13,
-                        "block": 0
-                    }
-                ]
-            },
-            "2": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 2
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 7,
-                        "block": 0
-                    }
-                ]
-            },
-            "3": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 1
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
-                    },
-                    {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
+                        "move_adjusted_damage": 6,
+                        "max_hp": 49,
                         "current_hp": 1,
                         "block": 0
                     }
-                ]
-            },
-            "4": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 5,
-                    "max_hp": 88,
-                    "energy": 0
-                },
-                "combat_state_monsters": [
+                ],
+                "hand": [
                     {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 1,
-                        "block": 0
-                    }
-                ]
-            },
-            "5": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 5,
-                    "max_hp": 88,
-                    "energy": 0
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 1,
-                        "block": 0
-                    }
-                ]
-            },
-            "6": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 5,
-                    "max_hp": 88,
-                    "energy": 0
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": -1,
-                        "last_move_id": 1,
-                        "half_dead": false,
-                        "move_adjusted_damage": -1,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 1,
-                        "block": 0
-                    }
-                ]
-            }
-        },
-        "4": {
-            "1": {
-                "combat_state_player": {
-                    "current_hp": 79,
-                    "block": 0,
-                    "max_hp": 88,
-                    "energy": 3
-                },
-                "combat_state_monsters": [
-                    {
-                        "is_gone": true,
-                        "move_hits": 1,
-                        "move_base_damage": 5,
-                        "half_dead": false,
-                        "move_adjusted_damage": 5,
-                        "max_hp": 10,
-                        "current_hp": 0,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     },
                     {
-                        "is_gone": false,
-                        "move_hits": 1,
-                        "move_base_damage": 10,
-                        "last_move_id": 4,
-                        "half_dead": false,
-                        "move_adjusted_damage": 10,
-                        "max_hp": 31,
-                        "second_last_move_id": 1,
-                        "current_hp": 1,
-                        "block": 0
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
                     }
                 ]
             }
         }
     },
     "end_info": {
-        "current_hp": 85,
+        "current_hp": 80,
         "gold": 99,
-        "max_hp": 88
+        "max_hp": 80
     },
     "win": true
 }
