@@ -26,21 +26,6 @@ class SimpleAgent:
         self.chosen_class = chosen_class
         self.priorities = Priority()
         self.change_class(chosen_class)
-        self.model = None
-
-    def change_class(self, new_class):
-        self.chosen_class = new_class
-        if self.chosen_class == PlayerClass.THE_SILENT:
-            self.priorities = SilentPriority()
-        elif self.chosen_class == PlayerClass.IRONCLAD:
-            self.priorities = IroncladPriority()
-        elif self.chosen_class == PlayerClass.DEFECT:
-            self.priorities = DefectPowerPriority()
-        else:
-            self.priorities = random.choice(list(PlayerClass))
-
-    def handle_error(self, error):
-        raise Exception(error)
 
     def set_dump(self, s = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\combat.json"):
         self.dump_filename = s
@@ -55,8 +40,19 @@ class SimpleAgent:
         f.write("\n")
         f.close()
 
-    def register_model_train():
-        pass
+    def change_class(self, new_class):
+        self.chosen_class = new_class
+        if self.chosen_class == PlayerClass.THE_SILENT:
+            self.priorities = SilentPriority()
+        elif self.chosen_class == PlayerClass.IRONCLAD:
+            self.priorities = IroncladPriority()
+        elif self.chosen_class == PlayerClass.DEFECT:
+            self.priorities = DefectPowerPriority()
+        else:
+            self.priorities = random.choice(list(PlayerClass))
+
+    def handle_error(self, error):
+        raise Exception(error)
 
     def get_combat_start_info(self):
         info = ["act", "current_hp", "floor", "gold", "max_hp"]
@@ -81,19 +77,11 @@ class SimpleAgent:
 
         player_info_drop = ["powers","orbs"]
         for k in player_info_drop:
-            rv["player"].pop(k)
-
+            rv["combat_state_player"].pop(k)
         monster_info_drop = ["intent","move_id","name","id","powers"]
-        for i in rv["monsters"]:
+        for i in rv["combat_state_monsters"]:
             for k in monster_info_drop:
                 i.pop(k)
-
-        rv.update(recur_get(json_copy,["combat_state","hand"]))
-        card_info_drop = ["id","uuid", "rarity", "has_target"]
-        for i in rv["hand"]:
-            for k in card_info_drop:
-                i.pop(k)
-
         return rv
 
     def get_combat_info(self):
@@ -115,12 +103,10 @@ class SimpleAgent:
                 self.combat_info["end_info"] = self.get_combat_end_info()
                 self.combat_info["win"] = True
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
-                # self.model_train()
             elif self.game.screen_type==spirecomm.spire.screen.ScreenType["GAME_OVER"]:
                 self.combat_info["end_info"] = self.get_combat_end_info()
                 self.combat_info["win"] = False
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
-                # self.model_train()
 
     def get_next_action_in_game(self, game_state):
         self.prev_game = self.game
