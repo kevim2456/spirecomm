@@ -75,8 +75,9 @@ class SimpleAgent:
     def get_turn_info(self):
         info = [["combat_state","player"],["combat_state","monsters"]]
         rv = {}
+        json_copy = copy.deepcopy(self.game.json_state)
         for i in info:
-            rv.update(recur_get(self.game.json_state,i))
+            rv.update(recur_get(json_copy,i))
 
         player_info_drop = ["powers","orbs"]
         for k in player_info_drop:
