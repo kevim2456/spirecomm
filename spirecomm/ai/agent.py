@@ -54,6 +54,20 @@ class SimpleAgent:
     def handle_error(self, error):
         raise Exception(error)
 
+    def get_combat_start_info(self):
+        info = ["act", "current_hp", "floor", "gold", "max_hp"]
+        rv = {}
+        for i in info:
+            rv.update({i:self.game.json_state.get(i)})
+        return rv
+
+    def get_combat_end_info(self):
+        info = ["current_hp", "gold", "max_hp"]
+        rv = {}
+        for i in info:
+            rv.update({i:self.game.json_state.get(i)})
+        return rv
+
     def get_turn_info(self):
         info = [["combat_state","player"],["combat_state","monsters"]]
         rv = {}
@@ -75,8 +89,7 @@ class SimpleAgent:
         true = True
         if self.prev_game.in_combat == False and self.game.in_combat == True:
             self.combat_info.clear()
-            self.combat_info["floor"] = self.game.floor
-            self.combat_info["start_info"] = "start_info"
+            self.combat_info["start_info"] = self.get_combat_start_info()
             self.combat_info["turns"] = {}
         if self.game.in_combat:
             n_turn = self.game.turn
@@ -87,10 +100,12 @@ class SimpleAgent:
             self.dump(json.dumps(self.combat_info, indent=4))
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:
-                self.combat_info["//"] = "win a combat";
+                self.combat_info["end_info"] = self.get_combat_end_info()
+                self.combat_info["win"] = True
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
             elif self.game.screen_type==spirecomm.spire.screen.ScreenType["GAME_OVER"]:
-                self.combat_info["//"] = "lose a combat";
+                self.combat_info["end_info"] = self.get_combat_end_info()
+                self.combat_info["win"] = False
                 self.dump(json.dumps(self.combat_info, indent=4),'w')
 
     def get_next_action_in_game(self, game_state):
