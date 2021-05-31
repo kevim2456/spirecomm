@@ -11,6 +11,7 @@ from spirecomm.communication.action import *
 from spirecomm.ai.priorities import *
 from spirecomm.RL.a import *
 
+
 class SimpleAgent:
 
     def __init__(self, chosen_class=PlayerClass.THE_SILENT):
@@ -54,20 +55,29 @@ class SimpleAgent:
         raise Exception(error)
 
     def get_turn_info(self):
-        info = [["combat_state","player"]]
+        info = [["combat_state","player"],["combat_state","monsters"]]
         rv = {}
         for i in info:
             rv.update(recur_get(self.game.json_state,i))
+
+        player_info_drop = ["powers","orbs"]
+        for k in player_info_drop:
+            rv["combat_state_player"].pop(k)
+        monster_info_drop = ["intent","move_id","name","id","powers"]
+        for i in rv["combat_state_monsters"]:
+            for k in monster_info_drop:
+                i.pop(k)
         return rv
 
     def get_combat_info(self):
+        false = False
+        true = True
         if self.prev_game.in_combat == False and self.game.in_combat == True:
             self.combat_info.clear()
             # self.dump(self.game.floor,'w')
             self.combat_info["floor"] = self.game.floor
             self.combat_info["start_info"] = "start_info"#self.game.json_state
             self.combat_info["turns"] = {}
-            self.dump(repr(self.get_turn_info()))
         if self.game.in_combat:
             n_turn = self.game.turn
             if n_turn != self.prev_game.turn:
@@ -76,7 +86,14 @@ class SimpleAgent:
             ###### self.dump(json.dumps(self.game.json_state, indent=4))
             # self.dump("state to dump")
             n_action = len(self.combat_info["turns"][n_turn]) + 1
-            self.combat_info["turns"][n_turn][n_action] = "curr info";
+            # self.dump(json.dumps(self.get_turn_info(), indent=4))
+            # self.dump(repr(self.get_turn_info()))
+            self.combat_info["turns"][n_turn][n_action] = {}
+            # self.dump(json.dumps(self.combat_info, indent=4))
+            self.combat_info["turns"][n_turn][n_action] = self.get_turn_info()
+            # self.dump(json.dumps(self.combat_info, indent=4))
+            # self.dump(repr(self.combat_info))
+            self.dump("done")
         if self.prev_game.screen_type==spirecomm.spire.screen.ScreenType["NONE"]:
             # self.dump(json.dumps(self.game.json_state.get("screen_type")))
             if self.game.screen_type==spirecomm.spire.screen.ScreenType["COMBAT_REWARD"]:

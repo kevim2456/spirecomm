@@ -1,0 +1,49 @@
+{
+    "floor": 1,
+    "start_info": "start_info",
+    "turns": {
+        "1": {
+            "1": {
+                "combat_state_player": {
+                    "current_hp": 80,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "combat_state_monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 54,
+                        "current_hp": 1,
+                        "block": 0
+                    }
+                ]
+            },
+            "2": {
+                "combat_state_player": {
+                    "current_hp": 80,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "combat_state_monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 54,
+                        "current_hp": 1,
+                        "block": 0
+                    }
+                ]
+            }
+        }
+    },
+    "//": "win a combat"
+}
