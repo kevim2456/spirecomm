@@ -171,7 +171,7 @@ class Coordinator:
         if message is not None:
             communication_state = json.loads(message)
             f = open(self.dump_filename,'w')
-            f.write(json.dumps(communication_state, indent=4, sort_keys=True))
+            f.write(json.dumps(communication_state, indent=4))
             f.close()
             self.last_error = communication_state.get("error", None)
             self.game_is_ready = communication_state.get("ready_for_command")
