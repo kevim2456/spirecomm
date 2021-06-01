@@ -1,0 +1,1 @@
+['Clumsy', 'Decay', 'Doubt', 'Injury', 'Normality', 'Pain', 'Parasite', 'Regret', 'Shame', 'Writhe', "Ascender's Bane", 'Curse of the Bell', 'Necronomicurse', 'Pride']
