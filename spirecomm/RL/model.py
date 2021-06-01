@@ -59,7 +59,6 @@ class Model:
         # win    = 10 if self.combat_info["win"] else 0
         # reward = (3*hp, max_hp, gold, -turn_n, 100*floor**0.33)
         return hp
-        # return win
 
     def encode_variable_data(self, tmp, name, max_n):
         num = len(tmp[name])
@@ -70,8 +69,7 @@ class Model:
                 rv.append([ True ]+[ i for i in tmp[name][i].values()])
             else:
                 rv.append([ False ]+[ 0 for _ in range(len(tmp[name][0]))])
-        # return torch.tensor(rv)
-        return rv
+        return torch.tensor(rv)
 
     def encode_card_data_feature(self, key, value):
         table = {
@@ -181,22 +179,11 @@ class Model:
                         tensor( flatten_list( [self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()] ), dtype=dtype )
                     ), 0
                 )
-                # print([ i for i in tmp[name][i].values() ])
-                # print([self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()])
-                # print(flatten_list([self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()]))
             else:
-                # empty_card_tensor = torch.cat(
-                #     (
-                #         tensor([False]),
-                #         tensor( flatten_list( [self.encode_card_data_feature(k,0) for k,v in tmp[name][0].items() ]))
-                #     ),
-                #     0
-                # )
                 empty_card_tensor = tensor(
                     [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=dtype
                 )
                 rv = torch.cat( (rv, empty_card_tensor), 0)
-        print(rv.type())
         return rv
 
 
@@ -206,15 +193,10 @@ class Model:
         max_hand_num = 10
         for turn_k in self.combat_info["turns"].keys():
             for situ_k in self.combat_info["turns"][turn_k].keys():
-                # pass
-                # self.dump(json.dumps(self.combat_info["turns"][turn_k][situ_k],indent=4),end='\n\n')
                 self.dump(str(turn_k)+', '+str(situ_k), end=' :\n')
                 tmp = self.combat_info["turns"][turn_k][situ_k]
-                # self.dump(repr(tmp["player"].values()))
                 self.dump("player: " + repr( torch.tensor([i for i in tmp["player"].values()] ) ) )
-                # self.dump("monsters:\n" + repr( self.encode_variable_data(tmp, "monsters", max_monster_num) ) ,end='\n\n')
-                self.encode_variable_data(tmp,"monsters",max_monster_num)
-                # self.dump("hand: " + repr( self.encode_variable_data(tmp,"hand",max_hand_num) ) )
+                self.dump("monsters: " + repr( self.encode_variable_data(tmp,"monsters",max_monster_num) ) )
                 self.dump("hand: " + repr(self.encode_card_data(tmp,"hand",max_hand_num) ) )
         self.dump("end a combat")
 
