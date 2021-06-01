@@ -1,9 +1,27 @@
 import json
 import copy
 import torch
+from torch import tensor
+from pprintpp import pprint as pp
+from spirecomm.spire.card import CardType
 
 false = False
 true = True
+dtype=torch.int
+
+def flatten_list(data):
+    flat = []
+    def f(data):
+    # iterating over the data
+        for element in data:
+            # checking for list
+            if type(element) == list:
+                # calling the same function with current element as new argument
+                f(element)
+            else:
+                flat.append(element)
+    f(data)
+    return flat
 
 class Model:
     def __init__(self):
@@ -52,18 +70,134 @@ class Model:
                 rv.append([ True ]+[ i for i in tmp[name][i].values()])
             else:
                 rv.append([ False ]+[ 0 for _ in range(len(tmp[name][0]))])
-        return torch.tensor(rv)
+        # return torch.tensor(rv)
+        return rv
 
-    # def encode_card_data(self, tmp, name, mex_n):
-    #     num = len(tmp[name])
-    #     if num > max_n : return "error"
-    #     rv = []
-    #     for i in range(max_n):
-    #         if i < num:
-    #             rv.append([ True ]+[ i for i in tmp[name][i].values()])
-    #         else:
-    #             rv.append([ False ]+[ 0 for _ in range(len(tmp[name][0]))])
-    #     return json.dumps(rv)
+    def encode_card_data_feature(self, key, value):
+        table = {
+            "type": {
+                "ATTACK": 1,
+                'SKILL': 2,
+                'POWER': 3,
+                'STATUS': 4,
+                'CURSE': 5
+            },
+            "name": {
+                "Bash": 1,
+                "Defend": 2,
+                "Strike": 3,
+                "Anger": 4,
+                "Armaments": 5,
+                "Body Slam": 6,
+                "Clash": 7,
+                "Cleave": 8,
+                "Clothesline": 9,
+                "Flex": 10,
+                "Havoc": 11,
+                "Headbutt": 12,
+                "Heavy Blade": 13,
+                "Iron Wave": 14,
+                "Perfected Strike": 15,
+                "Pommel Strike": 16,
+                "Shrug It Off": 17,
+                "Sword Boomerang": 18,
+                "Thunderclap": 19,
+                "True Grit": 20,
+                "Twin Strike": 21,
+                "Warcry": 22,
+                "Wild Strike": 23,
+                "Battle Trance": 24,
+                "Blood for Blood": 25,
+                "Bloodletting": 26,
+                "Burning Pact": 27,
+                "Carnage": 28,
+                "Combust": 29,
+                "Dark Embrace": 30,
+                "Disarm": 31,
+                "Dropkick": 32,
+                "Dual Wield": 33,
+                "Entrench": 34,
+                "Evolve": 35,
+                "Feel No Pain": 36,
+                "Fire Breathing": 37,
+                "Flame Barrier": 38,
+                "Ghostly Armor": 39,
+                "Hemokinesis": 40,
+                "Infernal Blade": 41,
+                "Inflame": 42,
+                "Intimidate": 43,
+                "Metallicize": 44,
+                "Power Through": 45,
+                "Pummel": 46,
+                "Rage": 47,
+                "Rampage": 48,
+                "Reckless Charge": 49,
+                "Rupture": 50,
+                "Searing Blow": 51,
+                "Second Wind": 52,
+                "Seeing Red": 53,
+                "Sentinel": 54,
+                "Sever Soul": 55,
+                "Shockwave": 56,
+                "Spot Weakness": 57,
+                "Uppercut": 58,
+                "Whirlwind": 59,
+                "Barricade": 60,
+                "Berserk": 61,
+                "Bludgeon": 62,
+                "Brutality": 63,
+                "Corruption": 64,
+                "Demon Form": 65,
+                "Double Tap": 66,
+                "Exhume": 67,
+                "Feed": 68,
+                "Fiend Fire": 69,
+                "Immolate": 70,
+                "Impervious": 71,
+                "Juggernaut": 72,
+                "Limit Break": 73,
+                "Offering": 74,
+                "Reaper": 75
+            }
+        }
+
+        if key in table.keys():
+            rv = [False]*len(table[key])
+            rv[table[key].get(value,0)] = True
+            return rv
+        else: return value
+
+
+    def encode_card_data(self, tmp, name, max_n):
+        num = len(tmp[name])
+        if num > max_n : return "error"
+        rv = tensor([],dtype=dtype)
+        for i in range(max_n):
+            if i < num:
+                rv = torch.cat(
+                    (
+                        rv,
+                        tensor([True],dtype=dtype),
+                        tensor( flatten_list( [self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()] ), dtype=dtype )
+                    ), 0
+                )
+                # print([ i for i in tmp[name][i].values() ])
+                # print([self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()])
+                # print(flatten_list([self.encode_card_data_feature(k,v) for k,v in tmp[name][i].items()]))
+            else:
+                # empty_card_tensor = torch.cat(
+                #     (
+                #         tensor([False]),
+                #         tensor( flatten_list( [self.encode_card_data_feature(k,0) for k,v in tmp[name][0].items() ]))
+                #     ),
+                #     0
+                # )
+                empty_card_tensor = tensor(
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], dtype=dtype
+                )
+                rv = torch.cat( (rv, empty_card_tensor), 0)
+        print(rv.type())
+        return rv
 
 
     def encode_decision(self):
@@ -78,8 +212,10 @@ class Model:
                 tmp = self.combat_info["turns"][turn_k][situ_k]
                 # self.dump(repr(tmp["player"].values()))
                 self.dump("player: " + repr( torch.tensor([i for i in tmp["player"].values()] ) ) )
-                self.dump("monsters:\n" + repr( self.encode_variable_data(tmp, "monsters", max_monster_num) ) ,end='\n\n')
-                # self.dump("hand: " + self.encode_variable_data(tmp,"hand",max_hand_num))
+                # self.dump("monsters:\n" + repr( self.encode_variable_data(tmp, "monsters", max_monster_num) ) ,end='\n\n')
+                self.encode_variable_data(tmp,"monsters",max_monster_num)
+                # self.dump("hand: " + repr( self.encode_variable_data(tmp,"hand",max_hand_num) ) )
+                self.dump("hand: " + repr(self.encode_card_data(tmp,"hand",max_hand_num) ) )
         self.dump("end a combat")
 
 if __name__ == '__main__':
