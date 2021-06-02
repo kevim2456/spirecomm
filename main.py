@@ -14,6 +14,7 @@ if __name__ == "__main__":
     brain = Model()
     agent.register_push_data_callback(brain.get_data)
     agent.register_get_action_callback(brain.give_action)
+    
     coordinator = Coordinator()
     coordinator.set_dump() # you can place your path/file to dump
     coordinator.signal_ready()
@@ -23,5 +24,5 @@ if __name__ == "__main__":
 
     # Play games forever with ironclad
     agent.change_class(PlayerClass.IRONCLAD)
-    # while(True):
-    result = coordinator.play_one_game(PlayerClass.IRONCLAD)
+    while(True):
+        result = coordinator.play_one_game(PlayerClass.IRONCLAD)

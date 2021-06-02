@@ -2,6 +2,7 @@ from spirecomm.spire.card import CardType
 
 import json
 import copy
+import random
 from pprintpp import pprint as pp
 from bidict import bidict
 
@@ -14,6 +15,7 @@ false = False
 true = True
 dtype = torch.float
 card_name_dict = bidict( {
+    "None": 0,
     "Bandage Up": 1,
     "Blind": 2,
     "Dark Shackles": 3,
@@ -286,6 +288,7 @@ card_name_dict = bidict( {
     "Void": 270,
     "Wound": 271
 } )
+EPSILON = 0.7
 
 def flatten_list(data):
     flat = []
@@ -315,17 +318,19 @@ class Net(torch.nn.Module):
         x = F.relu(self.hidden2(x))      # activation function for hidden layer
         x = F.relu(self.hidden3(x))      # activation function for hidden layer
         x = F.relu(self.hidden4(x))      # activation function for hidden layer
-        x = F.softmax(self.predict(x),dim=0)             # linear output
+        x = F.softmax(self.predict(x), dim=0)             # linear output
         return x
 
 class Model:
     def __init__(self):
         self.dump_filename = None
         self.reward = 0
-        self.n_feature = 2926
+        self.n_feature = 2936
         self.n_hidden = 50
         self.n_output = len(card_name_dict)+1
         self.net = Net(n_feature=self.n_feature, n_hidden=self.n_hidden, n_output=self.n_output)
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.0002)
+        self.loss_func = torch.nn.MSELoss()
         self.set_dump()
 
     def set_dump(self, s = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\model.json"):
@@ -343,43 +348,48 @@ class Model:
 
     def get_data(self, combat_info):
         self.combat_info = copy.deepcopy(combat_info)
-        # self.dump(json.dumps(self.combat_json, indent=4))
         self.dump("hello world")
-        # self.dump("==================== reward : " + repr(self.calc_combat_reward()))
         self.calc_combat_reward()
+        self.dump("done calc combat reward")
+        self.encode_empty_card( self.combat_info["turns"][1][1] )
+        self.dump("done encode empty card")
         self.encode_decision()
 
     def give_action(self, turn_k, situ_k, turn_info):
-        self.dump("give action !!")
-        player = torch.tensor( [i for i in turn_info["player"].values()], dtype=dtype )
-        self.dump("player: "+repr(player),'w')
-        monsters = self.encode_monster_data(turn_info)
-        self.dump("monsters: "+repr(monsters),'w')
+        self.dump("in give_action")
+        if random.uniform(0,1) < EPSILON:   # greedy
+            self.dump("NN output")
+            self.encode_empty_card(turn_info)
+            player = torch.tensor( [i for i in turn_info["player"].values()], dtype=dtype )
+            monsters = self.encode_monster_data(turn_info)
+            hand_input = self.encode_card_data(turn_info,"hand")
+            action = torch.cat( (tensor([turn_k,situ_k]),player,monsters,hand_input), 0)
 
-        hand_input = self.encode_card_data(turn_info,"hand")
-        self.dump("hand_input: "+repr(hand_input),'w')
-        action = torch.cat( (tensor([turn_k,situ_k]),player,monsters,hand_input), 0)
-        self.dump("action: "+repr(action),'w')
+            out = self.net(action)
+            hand_weight = self.encode_hand_weight(turn_info)
+            rlt = out*hand_weight
+            card_to_play_name = card_name_dict.inverse.get(torch.argmax(rlt).item(), "None")
 
-        out = self.net(action)
-        self.dump("action shape: "+repr(action.shape),'w')
-        hand_weight = self.encode_hand_weight(turn_info)
-        self.dump("hand weight: "+repr(hand_weight),'w')
-        rlt = out*hand_weight
-        card_to_play_name = card_name_dict.inverse.get(torch.argmax(rlt).item(), "None")
-
-        self.dump(card_to_play_name,'w')
-        return card_to_play_name
+            return card_to_play_name
+        else:
+            self.dump("random output")
+            cards = [i["name"] for i in turn_info["hand"] if i["is_playable"]] + ["None"]
+            self.dump(cards)
+            card = random.choice(cards)
+            self.dump(card)
+            return card
 
     def calc_combat_reward(self):
-        hp = self.combat_info["end_info"]["current_hp"] - self.combat_info["start_info"]["current_hp"]
+        hp_gain = self.combat_info["end_info"]["current_hp"] - self.combat_info["start_info"]["current_hp"]
         # max_hp = self.combat_info["end_info"]["max_hp"] - self.combat_info["start_info"]["max_hp"]
         # gold   = self.combat_info["end_info"]["gold"] - self.combat_info["start_info"]["gold"]
         # turn_n = len(self.combat_info["turns"])
         # floor  = self.combat_info["start_info"]["floor"]
         # win    = 10 if self.combat_info["win"] else 0
         # reward = (3*hp, max_hp, gold, -turn_n, 100*floor**0.33)
-        return (hp+100)/100
+        if hp_gain > 20 : hp_gain = 20
+        elif hp_gain < -80 : hp_gain = -80
+        self.reward = (hp_gain+80)/100
 
     def encode_monster_data(self, tmp):
         name = "monsters"
@@ -407,17 +417,30 @@ class Model:
                 'CURSE': 5
             },
         }
-
         if key in table.keys():
             rv = [False]*(len(table[key])+1)
             rv[table[key].get(value,False)] = True
             return rv
-        else: return value
+        else:
+            return value
+
+    def encode_empty_card(self,tmp):
+        self.dump("in encode_empty_card")
+        self.empty_card_tensor = torch.cat(
+            (
+                tensor([False]),
+                tensor( flatten_list( [ self.encode_card_data_feature(k,0) for k,v in tmp["hand"][0].items() ]))
+            ),
+            0
+        )
+        self.dump("done encode_empty_card")
 
     def encode_card_data(self, tmp, name):
         max_n = 10
         num = len(tmp[name])
-        if num > max_n : return "error"
+        if num > max_n :
+            self.dump("Error: num of card exceeds max_n")
+            return tensor([])
         rv = tensor([],dtype=dtype)
         for i in range(max_n):
             if i < num:
@@ -429,17 +452,7 @@ class Model:
                     ), 0
                 )
             else:
-                # empty_card_tensor = torch.cat(
-                #     (
-                #         tensor([False], dtype=dtype),
-                #         tensor( flatten_list( [self.encode_card_data_feature(k,0) for k,v in tmp[name][0].items() ]))
-                #     ),
-                #     0
-                # )
-                # print(empty_card_tensor)
-                empty_card_tensor = tensor(
-                [0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0.])
-                rv = torch.cat( (rv, empty_card_tensor), 0)
+                rv = torch.cat( (rv, self.empty_card_tensor), 0)
         return rv
 
     def encode_hand_weight(self, tmp):
@@ -447,27 +460,44 @@ class Model:
         rv[0] = 1
         for i in tmp["hand"]:
             if i["is_playable"]:
-                rv[ card_name_dict[ i["name"] ] ] = 1
+                rv[ card_name_dict.get(i["name"], 0) ] = 1
         return rv
 
+    def encode_action_with_reward(self, the_card_name, weight, hand_size_minus_one):
+        weight = weight*(1-self.reward) / hand_size_minus_one
+        weight[ card_name_dict.inverse.get(the_card_name,0) ] = self.reward
+        return weight
+
     def encode_decision(self):
-        self.dump('hello world','w')
-        net = Net(n_feature=self.n_feature, n_hidden=self.n_hidden, n_output=self.n_output)
+        self.dump('hello encode decision','w')
 
         for turn_k in self.combat_info["turns"].keys():
             for situ_k in self.combat_info["turns"][turn_k].keys():
                 self.dump(str(turn_k)+', '+str(situ_k), end=' :\n')
                 tmp = self.combat_info["turns"][turn_k][situ_k]
+
                 player = torch.tensor( [i for i in tmp["player"].values()], dtype=dtype )
                 monsters = self.encode_monster_data(tmp)
                 hand_input = self.encode_card_data(tmp,"hand")
                 # print(len(player),len(monsters),len(hand))
                 action = torch.cat( (tensor([int(turn_k),int(situ_k)]),player,monsters,hand_input), 0)
+
+                self.dump(len(action))
+
                 out = self.net(action)
                 hand_weight = self.encode_hand_weight(tmp)
+                hand_size_minus_one = sum(hand_weight)-1
                 rlt = out*hand_weight
-                # print( type( torch.argmax(rlt).item() )  )
-                self.dump( card_name_dict.inverse.get(torch.argmax(rlt).item(), "None") )
+                reward = self.encode_action_with_reward(tmp.get("action","None"), hand_weight, hand_size_minus_one)
+
+                # print(reward)
+
+                loss = self.loss_func(out, reward)
+                self.optimizer.zero_grad()   # clear gradients for next train
+                loss.backward()         # backpropagation, compute gradients
+                self.optimizer.step()        # apply gradients
+
+                # self.dump( card_name_dict.inverse.get(torch.argmax(rlt).item(), "None") )
                 # self.dump( card_name_dict.get(2, "None") )
         self.dump("end a combat")
 
@@ -6144,7 +6174,2930 @@ if __name__ == '__main__':
     },
     "win": true
 }
+    t4 = {
+    "start_info": {
+        "act": 1,
+        "current_hp": 80,
+        "floor": 1,
+        "gold": 99,
+        "max_hp": 80
+    },
+    "turns": {
+        "1": {
+            "1": {
+                "player": {
+                    "current_hp": 80,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 11,
+                        "max_hp": 41,
+                        "current_hp": 41,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": true,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Reaper",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 80,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 11,
+                        "max_hp": 41,
+                        "current_hp": 41,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": true,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Reaper",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Reaper"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 80,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 0
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 11,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ]
+            }
+        },
+        "2": {
+            "1": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "3": {
+            "1": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "4": {
+            "1": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 10,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "5": {
+            "1": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "4": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 15,
+                    "max_hp": 80,
+                    "energy": 0
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ]
+            }
+        },
+        "6": {
+            "1": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 74,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "7": {
+            "1": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "4": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 15,
+                    "max_hp": 80,
+                    "energy": 0
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 13,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ]
+            }
+        },
+        "8": {
+            "1": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "9": {
+            "1": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 20,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 66,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 20,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "10": {
+            "1": {
+                "player": {
+                    "current_hp": 51,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 16,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 51,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 16,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 51,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 16,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "4": {
+                "player": {
+                    "current_hp": 51,
+                    "block": 15,
+                    "max_hp": 80,
+                    "energy": 0
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 16,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ]
+            }
+        },
+        "11": {
+            "1": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "12": {
+            "1": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 23,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 23,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 50,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 23,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "13": {
+            "1": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "14": {
+            "1": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 22,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 22,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 37,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 22,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "15": {
+            "1": {
+                "player": {
+                    "current_hp": 25,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 26,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 25,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 26,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 5
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            }
+        },
+        "16": {
+            "1": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "4": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 15,
+                    "max_hp": 80,
+                    "energy": 0
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": -1,
+                        "half_dead": false,
+                        "move_adjusted_damage": -1,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": false,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ]
+            }
+        },
+        "17": {
+            "1": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 25,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "2": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 5,
+                    "max_hp": 80,
+                    "energy": 2
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 25,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Defend"
+            },
+            "3": {
+                "player": {
+                    "current_hp": 4,
+                    "block": 10,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 25,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 6
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "End Turn"
+            },
+            "4": {
+                "player": {
+                    "current_hp": 0,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 1
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 7,
+                        "half_dead": false,
+                        "move_adjusted_damage": 25,
+                        "max_hp": 41,
+                        "current_hp": 37,
+                        "block": 0
+                    }
+                ],
+                "hand": []
+            }
+        }
+    },
+    "end_info": {
+        "current_hp": 0,
+        "gold": 99,
+        "max_hp": 80
+    },
+    "win": false
+}
+    t5 = {
+    "start_info": {
+        "act": 1,
+        "current_hp": 80,
+        "floor": 1,
+        "gold": 99,
+        "max_hp": 80
+    },
+    "turns": {
+        1: {
+            1: {
+                "player": {
+                    "current_hp": 80,
+                    "block": 0,
+                    "max_hp": 80,
+                    "energy": 3
+                },
+                "monsters": [
+                    {
+                        "is_gone": false,
+                        "move_hits": 1,
+                        "move_base_damage": 11,
+                        "half_dead": false,
+                        "move_adjusted_damage": 11,
+                        "max_hp": 44,
+                        "current_hp": 1,
+                        "block": 0
+                    }
+                ],
+                "hand": [
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 2,
+                        "name": "Bash",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Defend",
+                        "type": "SKILL",
+                        "upgrades": 0
+                    },
+                    {
+                        "exhausts": false,
+                        "is_playable": true,
+                        "cost": 1,
+                        "name": "Strike",
+                        "type": "ATTACK",
+                        "upgrades": 0
+                    }
+                ],
+                "action": "Strike"
+            }
+        }
+    },
+    "end_info": {
+        "current_hp": 80,
+        "gold": 99,
+        "max_hp": 80
+    },
+    "win": true
+}
 
-    m.get_data(t3)
+
+    m.get_data(t5)
     # net = Net(n_feature=100,n_hidden=20,n_output=100)
     # print(net)

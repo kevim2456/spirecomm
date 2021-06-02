@@ -222,7 +222,7 @@ class SimpleAgent:
         self.dump("get card play action")
         card_to_play_name = self.model_get_action(turn_n, action_n, self.combat_info["turns"][turn_n][action_n])
         self.dump(repr(type(card_to_play_name)))
-        self.dump( repr(card_to_play_name) )
+        self.dump( card_to_play_name )
 
         if card_to_play_name == "None":
             self.dump("card to play == None >>> End Turn")
