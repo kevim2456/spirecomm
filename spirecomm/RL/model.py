@@ -1,7 +1,9 @@
+from spirecomm.spire.card import CardType
+
 import json
 import copy
 from pprintpp import pprint as pp
-from spirecomm.spire.card import CardType
+from bidict import bidict
 
 import torch
 from torch import tensor
@@ -11,7 +13,7 @@ import torch.nn.functional as F
 false = False
 true = True
 dtype = torch.float
-card_name_dict = {
+card_name_dict = bidict( {
     "Bandage Up": 1,
     "Blind": 2,
     "Dark Shackles": 3,
@@ -283,7 +285,7 @@ card_name_dict = {
     "Slimed": 269,
     "Void": 270,
     "Wound": 271
-}
+} )
 
 def flatten_list(data):
     flat = []
@@ -313,7 +315,7 @@ class Net(torch.nn.Module):
         x = F.relu(self.hidden2(x))      # activation function for hidden layer
         x = F.relu(self.hidden3(x))      # activation function for hidden layer
         x = F.relu(self.hidden4(x))      # activation function for hidden layer
-        x = self.predict(x)             # linear output
+        x = F.softmax(self.predict(x),dim=0)             # linear output
         return x
 
 class Model:
@@ -322,7 +324,7 @@ class Model:
         self.reward = 0
         self.n_feature = 2924
         self.n_hidden = 50
-        self.n_output = len(card_name_dict)
+        self.n_output = len(card_name_dict)+1
         self.set_dump()
 
     def set_dump(self, s = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\model.json"):
@@ -414,6 +416,12 @@ class Model:
                 rv = torch.cat( (rv, empty_card_tensor), 0)
         return rv
 
+    def encode_hand_weight(self, tmp):
+        rv = torch.zeros( len(card_name_dict) + 1 )
+        for i in tmp["hand"]:
+            rv[ card_name_dict[ i["name"] ] ] = 1
+        return rv
+
     def encode_decision(self):
         self.dump('hello world','w')
         max_hand_num = 10
@@ -424,11 +432,16 @@ class Model:
                 tmp = self.combat_info["turns"][turn_k][situ_k]
                 player = torch.tensor( [i for i in tmp["player"].values()], dtype=dtype )
                 monsters = self.encode_monster_data(tmp)
-                hand = self.encode_card_data(tmp,"hand",max_hand_num)
+                hand_input = self.encode_card_data(tmp,"hand",max_hand_num)
                 # print(len(player),len(monsters),len(hand))
-                action = torch.cat( (player,monsters,hand), 0)
+                action = torch.cat( (player,monsters,hand_input), 0)
                 out = net(action)
-                self.dump(out)
+                hand_weight = self.encode_hand_weight(tmp)
+                rlt = out*hand_weight
+                self.dump(rlt)
+                # print( type( torch.argmax(rlt).item() )  )
+                self.dump( card_name_dict.inverse.get(torch.argmax(rlt).item(), "None") )
+                # self.dump( card_name_dict.get(2, "None") )
         self.dump("end a combat")
 
 if __name__ == '__main__':
