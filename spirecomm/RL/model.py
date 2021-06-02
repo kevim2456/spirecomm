@@ -322,9 +322,10 @@ class Model:
     def __init__(self):
         self.dump_filename = None
         self.reward = 0
-        self.n_feature = 2924
+        self.n_feature = 2926
         self.n_hidden = 50
         self.n_output = len(card_name_dict)+1
+        self.net = Net(n_feature=self.n_feature, n_hidden=self.n_hidden, n_output=self.n_output)
         self.set_dump()
 
     def set_dump(self, s = "C:\\Users\\kevinliu.cs08\\Documents\\GitHub\\spirecomm\\model.json"):
@@ -348,6 +349,28 @@ class Model:
         self.calc_combat_reward()
         self.encode_decision()
 
+    def give_action(self, turn_k, situ_k, turn_info):
+        self.dump("give action !!")
+        player = torch.tensor( [i for i in turn_info["player"].values()], dtype=dtype )
+        self.dump("player: "+repr(player),'w')
+        monsters = self.encode_monster_data(turn_info)
+        self.dump("monsters: "+repr(monsters),'w')
+
+        hand_input = self.encode_card_data(turn_info,"hand")
+        self.dump("hand_input: "+repr(hand_input),'w')
+        action = torch.cat( (tensor([turn_k,situ_k]),player,monsters,hand_input), 0)
+        self.dump("action: "+repr(action),'w')
+
+        out = self.net(action)
+        self.dump("action shape: "+repr(action.shape),'w')
+        hand_weight = self.encode_hand_weight(turn_info)
+        self.dump("hand weight: "+repr(hand_weight),'w')
+        rlt = out*hand_weight
+        card_to_play_name = card_name_dict.inverse.get(torch.argmax(rlt).item(), "None")
+
+        self.dump(card_to_play_name,'w')
+        return card_to_play_name
+
     def calc_combat_reward(self):
         hp = self.combat_info["end_info"]["current_hp"] - self.combat_info["start_info"]["current_hp"]
         # max_hp = self.combat_info["end_info"]["max_hp"] - self.combat_info["start_info"]["max_hp"]
@@ -356,13 +379,15 @@ class Model:
         # floor  = self.combat_info["start_info"]["floor"]
         # win    = 10 if self.combat_info["win"] else 0
         # reward = (3*hp, max_hp, gold, -turn_n, 100*floor**0.33)
-        return hp
+        return (hp+100)/100
 
     def encode_monster_data(self, tmp):
         name = "monsters"
         max_n = 10 #max_monster_num
         num = len(tmp[name])
-        if num > max_n : return "error"
+        if num > max_n :
+            self.dump("Error: num of monsters exceeds max_n")
+            return tensor([])
         rv = []
         for i in range(max_n):
             if i < num:
@@ -389,7 +414,8 @@ class Model:
             return rv
         else: return value
 
-    def encode_card_data(self, tmp, name, max_n):
+    def encode_card_data(self, tmp, name):
+        max_n = 10
         num = len(tmp[name])
         if num > max_n : return "error"
         rv = tensor([],dtype=dtype)
@@ -418,27 +444,28 @@ class Model:
 
     def encode_hand_weight(self, tmp):
         rv = torch.zeros( len(card_name_dict) + 1 )
+        rv[0] = 1
         for i in tmp["hand"]:
-            rv[ card_name_dict[ i["name"] ] ] = 1
+            if i["is_playable"]:
+                rv[ card_name_dict[ i["name"] ] ] = 1
         return rv
 
     def encode_decision(self):
         self.dump('hello world','w')
-        max_hand_num = 10
         net = Net(n_feature=self.n_feature, n_hidden=self.n_hidden, n_output=self.n_output)
+
         for turn_k in self.combat_info["turns"].keys():
             for situ_k in self.combat_info["turns"][turn_k].keys():
                 self.dump(str(turn_k)+', '+str(situ_k), end=' :\n')
                 tmp = self.combat_info["turns"][turn_k][situ_k]
                 player = torch.tensor( [i for i in tmp["player"].values()], dtype=dtype )
                 monsters = self.encode_monster_data(tmp)
-                hand_input = self.encode_card_data(tmp,"hand",max_hand_num)
+                hand_input = self.encode_card_data(tmp,"hand")
                 # print(len(player),len(monsters),len(hand))
-                action = torch.cat( (player,monsters,hand_input), 0)
-                out = net(action)
+                action = torch.cat( (tensor([int(turn_k),int(situ_k)]),player,monsters,hand_input), 0)
+                out = self.net(action)
                 hand_weight = self.encode_hand_weight(tmp)
                 rlt = out*hand_weight
-                self.dump(rlt)
                 # print( type( torch.argmax(rlt).item() )  )
                 self.dump( card_name_dict.inverse.get(torch.argmax(rlt).item(), "None") )
                 # self.dump( card_name_dict.get(2, "None") )

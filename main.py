@@ -13,6 +13,7 @@ if __name__ == "__main__":
     agent.set_dump() # you can place your path/file to dump
     brain = Model()
     agent.register_push_data_callback(brain.get_data)
+    agent.register_get_action_callback(brain.give_action)
     coordinator = Coordinator()
     coordinator.set_dump() # you can place your path/file to dump
     coordinator.signal_ready()

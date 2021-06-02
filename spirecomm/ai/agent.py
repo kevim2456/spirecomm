@@ -27,6 +27,7 @@ class SimpleAgent:
         self.priorities = Priority()
         self.change_class(chosen_class)
         self.push_data_callback = None
+        self.get_action_callback = None
 
     def change_class(self, new_class):
         self.chosen_class = new_class
@@ -60,6 +61,12 @@ class SimpleAgent:
 
     def model_train(self):
         self.push_data_callback(self.combat_info)
+
+    def register_get_action_callback(self, callback):
+        self.get_action_callback = callback
+
+    def model_get_action(self, turn_n, action_n, turn_info):
+        return self.get_action_callback(turn_n, action_n, turn_info)
 
     def get_combat_start_info(self):
         info = ["act", "current_hp", "floor", "gold", "max_hp"]
@@ -181,42 +188,75 @@ class SimpleAgent:
 
     def get_play_card_action(self):
         playable_cards = [card for card in self.game.hand if card.is_playable]
-        zero_cost_cards = [card for card in playable_cards if card.cost == 0]
-        zero_cost_attacks = [card for card in zero_cost_cards if card.type == spirecomm.spire.card.CardType.ATTACK]
-        zero_cost_non_attacks = [card for card in zero_cost_cards if card.type != spirecomm.spire.card.CardType.ATTACK]
-        nonzero_cost_cards = [card for card in playable_cards if card.cost != 0]
-        aoe_cards = [card for card in playable_cards if self.priorities.is_card_aoe(card)]
-        if self.game.player.block > self.get_incoming_damage() - (self.game.act + 4):
-            offensive_cards = [card for card in nonzero_cost_cards if not self.priorities.is_card_defensive(card)]
-            if len(offensive_cards) > 0:
-                nonzero_cost_cards = offensive_cards
-            else:
-                nonzero_cost_cards = [card for card in nonzero_cost_cards if not card.exhausts]
+        # zero_cost_cards = [card for card in playable_cards if card.cost == 0]
+        # zero_cost_attacks = [card for card in zero_cost_cards if card.type == spirecomm.spire.card.CardType.ATTACK]
+        # zero_cost_non_attacks = [card for card in zero_cost_cards if card.type != spirecomm.spire.card.CardType.ATTACK]
+        # nonzero_cost_cards = [card for card in playable_cards if card.cost != 0]
+        # aoe_cards = [card for card in playable_cards if self.priorities.is_card_aoe(card)]
+        # if self.game.player.block > self.get_incoming_damage() - (self.game.act + 4):
+        #     offensive_cards = [card for card in nonzero_cost_cards if not self.priorities.is_card_defensive(card)]
+        #     if len(offensive_cards) > 0:
+        #         nonzero_cost_cards = offensive_cards
+        #     else:
+        #         nonzero_cost_cards = [card for card in nonzero_cost_cards if not card.exhausts]
 
+        turn_n = len(self.combat_info["turns"])
+        action_n = len(self.combat_info["turns"][turn_n])
         if len(playable_cards) == 0:
+            self.combat_info["turns"][turn_n][action_n]['action'] = "End Turn"
             return EndTurnAction()
 
-        if len(zero_cost_non_attacks) > 0:
-            card_to_play = self.priorities.get_best_card_to_play(zero_cost_non_attacks)
-        elif len(nonzero_cost_cards) > 0:
-            card_to_play = self.priorities.get_best_card_to_play(nonzero_cost_cards)
-            if len(aoe_cards) > 0 and self.many_monsters_alive() and card_to_play.type == spirecomm.spire.card.CardType.ATTACK:
-                card_to_play = self.priorities.get_best_card_to_play(aoe_cards)
-        elif len(zero_cost_attacks) > 0:
-            card_to_play = self.priorities.get_best_card_to_play(zero_cost_attacks)
-        else:
-            # This shouldn't happen!
+        # if len(zero_cost_non_attacks) > 0:
+        #     card_to_play = self.priorities.get_best_card_to_play(zero_cost_non_attacks)
+        # elif len(nonzero_cost_cards) > 0:
+        #     card_to_play = self.priorities.get_best_card_to_play(nonzero_cost_cards)
+        #     if len(aoe_cards) > 0 and self.many_monsters_alive() and card_to_play.type == spirecomm.spire.card.CardType.ATTACK:
+        #         card_to_play = self.priorities.get_best_card_to_play(aoe_cards)
+        # elif len(zero_cost_attacks) > 0:
+        #     card_to_play = self.priorities.get_best_card_to_play(zero_cost_attacks)
+        # else:
+        #     # This shouldn't happen!
+        #     self.combat_info["turns"][turn_n][action_n]['action'] = "End Turn"
+        #     return EndTurnAction()
+
+        self.dump("get card play action")
+        card_to_play_name = self.model_get_action(turn_n, action_n, self.combat_info["turns"][turn_n][action_n])
+        self.dump(repr(type(card_to_play_name)))
+        self.dump( repr(card_to_play_name) )
+
+        if card_to_play_name == "None":
+            self.dump("card to play == None >>> End Turn")
+            self.combat_info["turns"][turn_n][action_n]['action'] = "End Turn"
             return EndTurnAction()
+        # self.dump("got card play action :"+card_to_play_name,end="\n\n")
+        card_to_play = None
+        self.dump("hand:")
+        for card in self.game.hand:
+            self.dump(card.name)
+            if card.name == card_to_play_name:
+                card_to_play = card
+                break
+
+        self.dump("end of print hand")
+
+        self.dump("card to play == Not None")
+
         if card_to_play.has_target:
             available_monsters = [monster for monster in self.game.monsters if monster.current_hp > 0 and not monster.half_dead and not monster.is_gone]
             if len(available_monsters) == 0:
+                self.combat_info["turns"][turn_n][action_n]['action'] = "End Turn"
+                self.dump("no monsters >>> End Turn")
                 return EndTurnAction()
             if card_to_play.type == spirecomm.spire.card.CardType.ATTACK:
                 target = self.get_low_hp_target()
             else:
                 target = self.get_high_hp_target()
+            self.combat_info["turns"][turn_n][action_n]['action'] = card_to_play.name
+            self.dump("play card with target")
             return PlayCardAction(card=card_to_play, target_monster=target)
         else:
+            self.combat_info["turns"][turn_n][action_n]['action'] = card_to_play.name
+            self.dump("play card without target")
             return PlayCardAction(card=card_to_play)
 
     def use_next_potion(self):
