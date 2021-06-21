@@ -269,10 +269,25 @@ class SimpleAgent:
 
     def handle_screen(self):
         if self.game.screen_type == ScreenType.EVENT:
+            events_dict = {'Neow Event': 1,'Ancient Writing': 1, 'Augmenter': 2, 'Big Fish': 1, 'Bonfire Spirits': 0, 'The Cleric': 1, 'The Colosseum': 0, 'Council of Ghosts': 1
+                , 'Cursed Tome': 1, 'Dead Adventurer': 1, 'Designer In-Spire': 0, 'The Divine Fountain': 0, 'Duplicator': 0, 'Face Trader': 2, 'Falling': 2, 'Forgotten Altar': 2, 'Golden Idol': 1
+                , 'Golden Shrine': 0, 'The Joust': 0, 'Knowing Skull': 2, 'Lab': 0, 'The Library': 1, 'Living Wall': 2, 'Masked Bandits': 0, 'Match and Keep!': 0, 'The Mausoleum': 0
+                , 'Mind Bloom': 1, 'The Moai Head': 2, 'Mushrooms': 0, 'Mysterious Sphere': 0, 'The Nest': 0, 'A Note For Yourself': 1, 'N\'loth': 2, 'Old Beggar': 0, 'Ominous Forge': 0, 'Pleading Vagrant': 0
+                , 'Purifier': 0, 'Scrap Ooze': 1, 'Secret Portal': 0, 'Sensory Stone': 0, 'Shining Light': 0, 'The Ssssserpent': 0, 'Tomb of Lord Red Mask': 0, 'Transmogrifier': 0
+                , 'Upgrade Shrine' : 0,'Vampires' : 2,'We Meet Again' : 0,'Wheel of Change' : 0,'Winding Halls' : 1,'Wing Statue' : 0,'The Woman in Blue' : 0,'World of Goop' : 0}
+            response = events_dict.get(self.game.screen.event_id)
+            if len(self.game.screen.options) == 1:
+                return ChooseAction(0)
+            elif response != None:
+                return ChooseAction(response)
+            else:
+                return ChooseAction(0)
+            """""
             if self.game.screen.event_id in ["Vampires", "Masked Bandits", "Knowing Skull", "Ghosts", "Liars Game", "Golden Idol", "Drug Dealer", "The Library"]:
                 return ChooseAction(len(self.game.screen.options) - 1)
             else:
                 return ChooseAction(0)
+            """""
         elif self.game.screen_type == ScreenType.CHEST:
             return OpenChestAction()
         elif self.game.screen_type == ScreenType.SHOP_ROOM:
